@@ -1,0 +1,129 @@
+apply plugin: 'com.android.application'
+apply plugin: 'si.dlabs.soter'
+apply plugin: 'pmd'
+
+android {
+    compileSdkVersion 24
+    buildToolsVersion "24.0.1"
+
+    defaultConfig {
+        applicationId "physical_web.org.physicalweb"
+        minSdkVersion 19
+        targetSdkVersion 24
+        versionCode 18
+        versionName "0.2.1"
+        jackOptions {
+            enabled true
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    if(new File("signing.properties").exists()) {
+        Properties signingProperties = new Properties()
+        signingProperties.load(new FileInputStream(new File('signing.properties')))
+
+        signingConfigs {
+            release {
+                storeFile new File(signingProperties['storeFile'])
+                storePassword signingProperties['storePassword']
+                keyAlias signingProperties['keyAlias']
+                keyPassword signingProperties['keyPassword']
+            }
+        }
+
+        buildTypes {
+            release {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    lintOptions {
+        // We'll get to fixing the icon later
+        // We'll get to updating the target api
+        // We can't use the next app compat until we update the target api
+        disable 'GoogleAppIndexingWarning', 'IconLauncherShape', 'IconDensities',
+            'IconMissingDensityFolder', 'LongLogTag', 'OldTargetApi', 'GradleDependency'
+        abortOnError true
+        warningsAsErrors true
+    }
+}
+
+repositories {
+    flatDir {
+        dirs 'libs'
+    }
+}
+
+dependencies {
+    compile(project(':libs')) {
+        exclude group: 'org.json', module: 'json'
+    }
+
+    compile 'com.android.volley:volley@aar'
+    compile 'org.uribeacon:uribeacon-library-release@aar'
+    compile 'com.android.support:appcompat-v7:24.0.0'
+    compile 'com.youview:tinydnssd:1.2.7'
+    compile 'org.nanohttpd:nanohttpd:2.3.0'
+    testCompile 'junit:junit:4.12'
+    testCompile 'org.mockito:mockito-core:1.10.19'
+
+    checkstyleRules files('config/checkstyle/checkstyle.xml')
+    findbugsRules files('config/findbugs/exclude-filter.xml')
+    pmdRules files('config/pmd/pmd-ruleset.xml')
+}
+
+task customPmd(type: Pmd) {
+    ignoreFailures = false
+    ruleSetFiles = files("${project.rootDir}/app/config/pmd/pmd-ruleset.xml")
+    ruleSets = []
+
+    source 'src'
+    include '**/*.java'
+    exclude '**/gen/**'
+
+    reports {
+        xml {
+            enabled = false
+            destination "$project.buildDir/reports/pmd/pmd.xml"
+        }
+        html {
+            enabled = true
+            destination "$project.buildDir/reports/pmd/pmd.html"
+        }
+    }
+}
+
+soter {
+    checkstyle {
+        enabled true
+        toolVersion "6.19"
+    }
+
+    findbugs {
+        enabled true
+        effort = "max"
+        reportLevel "high"
+        reportType "html"
+        ignoreFailures false
+    }
+
+    pmd {
+        // Soter currently forces pmd rules we don't want, so we need to include pmd ourselves.
+        enabled false
+        ignoreFailures false
+    }
+}
+
+check.dependsOn 'customPmd', 'lint'
